@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CHAMP Application Intake Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+  :root {
+    --ink: #1a1f2b;
+    --ink-soft: #4a5364;
+    --paper: #f6f4ee;
+    --panel: #ffffff;
+    --rule: #d9d4c7;
+    --brass: #b8893a;       /* state-house dome */
+    --brass-deep: #8c6526;
+    --slate: #3d5066;       /* civic blue-slate */
+    --slate-soft: #7c8 ;
+    --good: #4a7c59;
+    --warn: #b5562f;
+    --shadow: 0 1px 2px rgba(26,31,43,.06), 0 8px 24px rgba(26,31,43,.06);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 28px 24px 64px; }
+
+  /* Masthead */
+  header.mast {
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 14px;
+    margin-bottom: 22px;
+    display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; flex-wrap: wrap;
+  }
+  .mast .eyebrow {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 11px; letter-spacing: .18em; text-transform: uppercase;
+    color: var(--brass-deep); margin: 0 0 6px;
+  }
+  .mast h1 { margin: 0; font-size: 30px; font-weight: 600; letter-spacing: -.01em; line-height: 1.05; }
+  .mast .sub { font-size: 13px; color: var(--ink-soft); margin-top: 6px; }
+  .mast .domerule { height: 4px; width: 64px; background: var(--brass); margin-bottom: 12px; }
+
+  /* Loader */
+  .loader {
+    border: 1.5px dashed var(--rule); border-radius: 6px; background: var(--panel);
+    padding: 26px; text-align: center; transition: border-color .15s, background .15s;
+  }
+  .loader.drag { border-color: var(--brass); background: #fffaf0; }
+  .loader h2 { margin: 0 0 6px; font-size: 17px; font-weight: 600; }
+  .loader p { margin: 0 0 14px; color: var(--ink-soft); font-size: 13px; }
+  .filebtn {
+    display: inline-block; cursor: pointer; background: var(--ink); color: #fff;
+    font-family: ui-monospace, monospace; font-size: 12px; letter-spacing: .04em;
+    padding: 9px 16px; border-radius: 4px; border: none;
+  }
+  .filebtn:hover { background: var(--slate); }
+  .hint { font-family: ui-monospace, monospace; font-size: 11px; color: var(--slate); margin-top: 14px; }
+
+  /* Filter bar */
+  .filterbar {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    background: var(--panel); border: 1px solid var(--rule); border-radius: 6px;
+    padding: 10px 14px; margin-bottom: 20px; box-shadow: var(--shadow);
+  }
+  .filterbar .lbl { font-family: ui-monospace, monospace; font-size: 11px; letter-spacing:.1em; text-transform: uppercase; color: var(--ink-soft); }
+  .chip {
+    background: var(--slate); color: #fff; border-radius: 20px; padding: 4px 10px 4px 12px;
+    font-size: 12px; display: inline-flex; align-items: center; gap: 8px;
+  }
+  .chip b { font-weight: 600; }
+  .chip button { background: rgba(255,255,255,.25); border: none; color:#fff; width:16px; height:16px; border-radius:50%; cursor:pointer; line-height:1; font-size:11px; }
+  .chip button:hover { background: rgba(255,255,255,.5); }
+  .clearall { margin-left:auto; background:none; border:1px solid var(--rule); color: var(--ink-soft); font-size:12px; padding:5px 12px; border-radius:4px; cursor:pointer; font-family: ui-monospace, monospace;}
+  .clearall:hover { border-color: var(--ink); color: var(--ink); }
+  .count { font-family: ui-monospace, monospace; font-size: 12px; color: var(--ink-soft); }
+
+  /* Stat cards */
+  .stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 24px; }
+  .card {
+    background: var(--panel); border: 1px solid var(--rule); border-radius: 6px; padding: 14px 16px;
+    box-shadow: var(--shadow);
+  }
+  .card .k { font-family: ui-monospace, monospace; font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 8px; }
+  .card .v { font-size: 26px; font-weight: 600; line-height: 1; letter-spacing: -.01em; }
+  .card .u { font-size: 12px; color: var(--ink-soft); margin-top: 4px; }
+  .card.accent { border-top: 3px solid var(--brass); }
+
+  /* Panels */
+  .panel {
+    background: var(--panel); border: 1px solid var(--rule); border-radius: 6px;
+    padding: 18px 18px 20px; margin-bottom: 20px; box-shadow: var(--shadow);
+  }
+  .panel h3 { margin: 0 0 2px; font-size: 16px; font-weight: 600; }
+  .panel .desc { font-size: 12px; color: var(--ink-soft); margin: 0 0 16px; }
+  .panel .desc .clickable { color: var(--slate); }
+
+  /* Bars */
+  .barrow { display: grid; grid-template-columns: 130px 1fr 54px; align-items: center; gap: 10px; margin-bottom: 7px; cursor: pointer; }
+  .barrow:hover .barlabel { color: var(--brass-deep); }
+  .barlabel { font-size: 13px; text-align: right; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bartrack { background: #ece8dd; border-radius: 3px; height: 22px; position: relative; overflow: hidden; }
+  .barfill { background: var(--slate); height: 100%; border-radius: 3px 0 0 3px; transition: width .35s cubic-bezier(.2,.7,.2,1); }
+  .barrow.sel .barfill { background: var(--brass); }
+  .barrow.dim { opacity: .4; }
+  .barval { font-family: ui-monospace, monospace; font-size: 12px; color: var(--ink-soft); text-align: right; }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+
+  footer { margin-top: 36px; padding-top: 14px; border-top: 1px solid var(--rule); font-size: 11px; color: var(--ink-soft); font-family: ui-monospace, monospace; letter-spacing: .03em; }
+  .err { color: var(--warn); font-size: 13px; margin-top: 10px; }
+  .hidden { display: none; }
+
+  @media (max-width: 860px) {
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .grid2 { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="mast">
+    <div>
+      <div class="domerule"></div>
+      <p class="eyebrow">CHAMP · Intake Operations</p>
+      <h1>Application Intake Dashboard</h1>
+      <div class="sub">Paper applications received over the trailing year — entry latency &amp; demographic distribution.</div>
+    </div>
+    <div class="count" id="recordCount"></div>
+  </header>
+
+  <!-- LOADER -->
+  <div id="loader" class="loader">
+    <h2 id="loaderTitle">Loading paper_app_stats.csv…</h2>
+    <p id="loaderMsg">Reading the CSV from this folder. All processing happens in your browser — nothing is uploaded.</p>
+    <label class="filebtn">Choose CSV file
+      <input type="file" id="fileInput" accept=".csv,text/csv" class="hidden">
+    </label>
+    <div class="hint">Expected columns: time_received · time_entered · age · location · language · homeless</div>
+    <div id="loadErr" class="err"></div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div id="dash" class="hidden">
+
+    <div class="filterbar" id="filterbar">
+      <span class="lbl">Filters</span>
+      <span id="chips"></span>
+      <span id="noFilter" class="count">none active — click any bar to filter</span>
+      <button class="clearall" id="clearAll">Reset all</button>
+    </div>
+
+    <!-- Latency stats -->
+    <div class="stats" id="statCards"></div>
+
+    <!-- Latency histogram -->
+    <div class="panel">
+      <h3>Entry latency distribution</h3>
+      <p class="desc">Time from <em>received</em> to <em>entered</em>, in days. <span class="clickable">Click a band to filter.</span></p>
+      <div id="latencyHist"></div>
+    </div>
+
+    <div class="grid2">
+      <div class="panel">
+        <h3>By town</h3>
+        <p class="desc desc-town">Applications per municipality.</p>
+        <div id="townHist"></div>
+      </div>
+      <div class="panel">
+        <h3>By language</h3>
+        <p class="desc">Applicant's stated language.</p>
+        <div id="langHist"></div>
+      </div>
+    </div>
+
+    <div class="grid2">
+      <div class="panel">
+        <h3>By age bracket</h3>
+        <p class="desc">Applicant age, grouped.</p>
+        <div id="ageHist"></div>
+      </div>
+      <div class="panel">
+        <h3>Homeless priority</h3>
+        <p class="desc">Share flagged with homeless status.</p>
+        <div id="homelessHist"></div>
+      </div>
+    </div>
+
+    <footer id="foot"></footer>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---- State ----
+  var ROWS = [];          // normalized records
+  var FILTERS = {};       // { dimension: Set(values) }
+  var TOWN_LIMIT = 15;    // top-N towns shown
+
+  var el = function (id) { return document.getElementById(id); };
+
+  // ---- Column resolution (tolerant to naming) ----
+  function pick(headers, candidates) {
+    var norm = headers.map(function (h) { return h.toLowerCase().replace(/[^a-z0-9]/g, ""); });
+    for (var i = 0; i < candidates.length; i++) {
+      var c = candidates[i].replace(/[^a-z0-9]/g, "");
+      var idx = norm.indexOf(c);
+      if (idx !== -1) return headers[idx];
+      // loose contains match
+      for (var j = 0; j < norm.length; j++) { if (norm[j].indexOf(c) !== -1) return headers[j]; }
+    }
+    return null;
+  }
+
+  function parseBool(v) {
+    if (v === true) return true;
+    if (v === false || v == null) return false;
+    var s = String(v).trim().toLowerCase();
+    return s === "true" || s === "t" || s === "yes" || s === "y" || s === "1";
+  }
+
+  function ageBracket(age) {
+    if (age == null || isNaN(age)) return "Unknown";
+    if (age < 18) return "Under 18";
+    if (age < 25) return "18–24";
+    if (age < 35) return "25–34";
+    if (age < 45) return "35–44";
+    if (age < 55) return "45–54";
+    if (age < 62) return "55–61";
+    if (age < 75) return "62–74";
+    return "75+";
+  }
+  var AGE_ORDER = ["Under 18","18–24","25–34","35–44","45–54","55–61","62–74","75+","Unknown"];
+
+  // latency in days (float)
+  function latencyDays(r) {
+    if (!(r._recv instanceof Date) || !(r._ent instanceof Date)) return null;
+    if (isNaN(r._recv) || isNaN(r._ent)) return null;
+    return (r._ent - r._recv) / 86400000;
+  }
+
+  function fmtDuration(days) {
+    if (days == null || isNaN(days)) return "—";
+    if (days < 1) {
+      var h = days * 24;
+      if (h < 1) return Math.round(h * 60) + " min";
+      return h.toFixed(1) + " hr";
+    }
+    return days.toFixed(1) + " d";
+  }
+
+  // ---- Ingest ----
+  function ingest(rows, headers) {
+    var cR = pick(headers, ["time received","timereceived","received","receivedat"]);
+    var cE = pick(headers, ["time entered","timeentered","entered","enteredat"]);
+    var cAge = pick(headers, ["applicant age","age"]);
+    var cLoc = pick(headers, ["applicant location","location","town","municipality","city"]);
+    var cLang = pick(headers, ["applicant language","language"]);
+    var cHl = pick(headers, ["homeless"]);
+
+    ROWS = rows.map(function (row) {
+      var rec = {};
+      rec._recv = cR ? new Date(row[cR]) : null;
+      rec._ent = cE ? new Date(row[cE]) : null;
+      rec.age = cAge ? parseInt(row[cAge], 10) : NaN;
+      rec.ageBracket = ageBracket(rec.age);
+      rec.town = cLoc ? (String(row[cLoc] || "").trim() || "Unknown") : "Unknown";
+      rec.lang = cLang ? (String(row[cLang] || "").trim() || "Unknown") : "Unknown";
+      rec.homeless = cHl ? (parseBool(row[cHl]) ? "Homeless" : "Not homeless") : "Unknown";
+      rec.lat = null;
+      return rec;
+    });
+    ROWS.forEach(function (r) { r.lat = latencyDays(r); });
+
+    var missing = [];
+    if (!cR) missing.push("time received");
+    if (!cE) missing.push("time entered");
+    if (missing.length) {
+      el("loadErr").textContent = "Heads up: couldn't find column(s): " + missing.join(", ") + ". Latency stats will be blank, but other charts still work.";
+    }
+  }
+
+  // ---- Filtering ----
+  function passesExcept(r, exceptDim) {
+    for (var dim in FILTERS) {
+      if (!FILTERS.hasOwnProperty(dim) || dim === exceptDim) continue;
+      var set = FILTERS[dim];
+      if (set && set.size && !set.has(r[dim])) return false;
+    }
+    return true;
+  }
+  function filtered() { return ROWS.filter(function (r) { return passesExcept(r, null); }); }
+
+  function toggleFilter(dim, val) {
+    if (!FILTERS[dim]) FILTERS[dim] = new Set();
+    if (FILTERS[dim].has(val)) { FILTERS[dim].delete(val); if (!FILTERS[dim].size) delete FILTERS[dim]; }
+    else FILTERS[dim].add(val);
+    render();
+  }
+
+  // ---- Stats ----
+  function quantile(sorted, q) {
+    if (!sorted.length) return null;
+    var pos = (sorted.length - 1) * q, base = Math.floor(pos), rest = pos - base;
+    return sorted[base + 1] !== undefined ? sorted[base] + rest * (sorted[base + 1] - sorted[base]) : sorted[base];
+  }
+
+  function renderStats(data) {
+    var lats = data.map(function (r) { return r.lat; }).filter(function (v) { return v != null && !isNaN(v); }).sort(function (a, b) { return a - b; });
+    var cards;
+    if (!lats.length) {
+      cards = [["Records", String(data.length), "in view"], ["Latency", "—", "no timestamps"], ["", "", ""], ["", "", ""], ["", "", ""]];
+    } else {
+      var sum = lats.reduce(function (a, b) { return a + b; }, 0);
+      cards = [
+        ["Records", String(data.length), "in view", true],
+        ["Median", fmtDuration(quantile(lats, 0.5)), "typical entry"],
+        ["Average", fmtDuration(sum / lats.length), "mean"],
+        ["Fastest", fmtDuration(lats[0]), "shortest"],
+        ["Slowest", fmtDuration(lats[lats.length - 1]), "longest"]
+      ];
+    }
+    el("statCards").innerHTML = cards.map(function (c) {
+      if (!c[0]) return '<div class="card" style="visibility:hidden"></div>';
+      return '<div class="card' + (c[3] ? ' accent' : '') + '"><div class="k">' + c[0] + '</div><div class="v">' + c[1] + '</div><div class="u">' + c[2] + '</div></div>';
+    }).join("");
+  }
+
+  // ---- Histogram renderer ----
+  function counts(data, dim) {
+    var m = {};
+    data.forEach(function (r) { var k = r[dim]; m[k] = (m[k] || 0) + 1; });
+    return m;
+  }
+
+  function renderBars(containerId, dim, opts) {
+    opts = opts || {};
+    var data = ROWS.filter(function (r) { return passesExcept(r, dim); });
+    var m = counts(data, dim);
+    var entries = Object.keys(m).map(function (k) { return [k, m[k]]; });
+
+    if (opts.order) {
+      entries.sort(function (a, b) { return opts.order.indexOf(a[0]) - opts.order.indexOf(b[0]); });
+    } else {
+      entries.sort(function (a, b) { return b[1] - a[1]; });
+    }
+
+    var truncated = false;
+    if (opts.limit && entries.length > opts.limit) { entries = entries.slice(0, opts.limit); truncated = true; }
+
+    var max = entries.reduce(function (mx, e) { return Math.max(mx, e[1]); }, 0) || 1;
+    var sel = FILTERS[dim];
+
+    var html = entries.map(function (e) {
+      var isSel = sel && sel.has(e[0]);
+      var dim_ = (sel && sel.size && !isSel) ? " dim" : "";
+      var pct = (e[1] / max * 100).toFixed(1);
+      return '<div class="barrow' + (isSel ? ' sel' : '') + dim_ + '" data-dim="' + dim + '" data-val="' + String(e[0]).replace(/"/g, '&quot;') + '">' +
+        '<div class="barlabel" title="' + String(e[0]).replace(/"/g, '&quot;') + '">' + e[0] + '</div>' +
+        '<div class="bartrack"><div class="barfill" style="width:' + pct + '%"></div></div>' +
+        '<div class="barval">' + e[1] + '</div></div>';
+    }).join("");
+
+    el(containerId).innerHTML = html || '<div class="count">no data</div>';
+
+    if (truncated && dim === "town") {
+      el("townHist").insertAdjacentHTML("beforeend", '<div class="count" style="margin-top:8px">Showing top ' + opts.limit + ' of ' + Object.keys(m).length + ' towns</div>');
+    }
+
+    Array.prototype.forEach.call(el(containerId).querySelectorAll(".barrow"), function (row) {
+      row.addEventListener("click", function () { toggleFilter(row.getAttribute("data-dim"), row.getAttribute("data-val")); });
+    });
+  }
+
+  // latency band histogram
+  function renderLatencyHist() {
+    var data = filtered().map(function (r) { return r.lat; }).filter(function (v) { return v != null && !isNaN(v); });
+    if (!data.length) { el("latencyHist").innerHTML = '<div class="count">no timestamp data</div>'; return; }
+
+    var bands = [
+      ["band", "Same day", function (d) { return d < 1; }],
+      ["band", "1–2 days", function (d) { return d >= 1 && d < 3; }],
+      ["band", "3–7 days", function (d) { return d >= 3 && d < 7; }],
+      ["band", "1–2 weeks", function (d) { return d >= 7 && d < 14; }],
+      ["band", "2–4 weeks", function (d) { return d >= 14 && d < 28; }],
+      ["band", "Over 4 weeks", function (d) { return d >= 28; }]
+    ];
+    var rows = bands.map(function (b) { return [b[1], data.filter(b[2]).length]; });
+    var max = rows.reduce(function (mx, r) { return Math.max(mx, r[1]); }, 0) || 1;
+
+    el("latencyHist").innerHTML = rows.map(function (r) {
+      var pct = (r[1] / max * 100).toFixed(1);
+      return '<div class="barrow" style="cursor:default">' +
+        '<div class="barlabel">' + r[0] + '</div>' +
+        '<div class="bartrack"><div class="barfill" style="width:' + pct + '%;background:var(--brass)"></div></div>' +
+        '<div class="barval">' + r[1] + '</div></div>';
+    }).join("");
+  }
+
+  // ---- Chips / filter bar ----
+  function renderChips() {
+    var chips = [];
+    for (var dim in FILTERS) {
+      if (!FILTERS.hasOwnProperty(dim)) continue;
+      FILTERS[dim].forEach(function (v) {
+        chips.push('<span class="chip"><b>' + v + '</b><button data-d="' + dim + '" data-v="' + String(v).replace(/"/g, '&quot;') + '">×</button></span>');
+      });
+    }
+    el("chips").innerHTML = chips.join("");
+    el("noFilter").style.display = chips.length ? "none" : "inline";
+    Array.prototype.forEach.call(el("chips").querySelectorAll("button"), function (b) {
+      b.addEventListener("click", function () { toggleFilter(b.getAttribute("data-d"), b.getAttribute("data-v")); });
+    });
+  }
+
+  // ---- Master render ----
+  function render() {
+    var data = filtered();
+    el("recordCount").textContent = data.length + " of " + ROWS.length + " applications";
+    renderStats(data);
+    renderLatencyHist();
+    renderBars("townHist", "town", { limit: TOWN_LIMIT });
+    renderBars("langHist", "lang");
+    renderBars("ageHist", "ageBracket", { order: AGE_ORDER });
+    renderBars("homelessHist", "homeless", { order: ["Homeless", "Not homeless", "Unknown"] });
+    renderChips();
+    el("foot").textContent = "Processed locally · " + ROWS.length + " records · generated " + new Date().toLocaleString();
+  }
+
+  // ---- File handling ----
+  var DEFAULT_CSV = "paper_app_stats.csv";
+
+  function loadParsed(res) {
+    if (!res.data || !res.data.length) { el("loadErr").textContent = "That file looks empty or unreadable."; return false; }
+    ingest(res.data, res.meta.fields || Object.keys(res.data[0]));
+    FILTERS = {};
+    el("loader").classList.add("hidden");
+    el("dash").classList.remove("hidden");
+    render();
+    return true;
+  }
+
+  function handleFile(file) {
+    el("loadErr").textContent = "";
+    Papa.parse(file, {
+      header: true, skipEmptyLines: true, dynamicTyping: false,
+      complete: loadParsed,
+      error: function (e) { el("loadErr").textContent = "Could not parse file: " + e.message; }
+    });
+  }
+
+  // Try to auto-load the CSV sitting next to this HTML file.
+  function autoLoad() {
+    Papa.parse(DEFAULT_CSV, {
+      header: true, skipEmptyLines: true, dynamicTyping: false, download: true,
+      complete: function (res) {
+        if (!loadParsed(res)) showManualLoader("Couldn't read paper_app_stats.csv — load it manually below.");
+      },
+      error: function () { showManualLoader(); }
+    });
+  }
+
+  function showManualLoader(msg) {
+    el("loaderTitle").textContent = "Load paper_app_stats.csv";
+    el("loaderMsg").textContent = "Couldn't auto-load the file — this is normal when opening the page directly from disk. Drop the CSV here or choose it below.";
+    if (msg) el("loadErr").textContent = msg;
+  }
+
+  el("fileInput").addEventListener("change", function (e) { if (e.target.files[0]) handleFile(e.target.files[0]); });
+  var ld = el("loader");
+  ["dragenter", "dragover"].forEach(function (ev) { ld.addEventListener(ev, function (e) { e.preventDefault(); ld.classList.add("drag"); }); });
+  ["dragleave", "drop"].forEach(function (ev) { ld.addEventListener(ev, function (e) { e.preventDefault(); ld.classList.remove("drag"); }); });
+  ld.addEventListener("drop", function (e) { var f = e.dataTransfer.files[0]; if (f) handleFile(f); });
+
+  el("clearAll").addEventListener("click", function () { FILTERS = {}; render(); });
+
+  autoLoad();
+})();
+</script>
+</body>
+</html>
