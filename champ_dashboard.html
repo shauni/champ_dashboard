@@ -110,6 +110,17 @@
   .barrow.dim { opacity: .4; }
   .barval { font-family: ui-monospace, monospace; font-size: 12px; color: var(--ink-soft); text-align: right; }
 
+  /* Donut */
+  .donut-wrap { display: flex; align-items: center; gap: 28px; flex-wrap: wrap; }
+  .donut-wrap svg { flex: 0 0 auto; }
+  .donut-legend { flex: 1 1 220px; min-width: 200px; }
+  .legrow { display: grid; grid-template-columns: 14px 1fr auto 54px; align-items: center; gap: 10px; padding: 5px 0; border-bottom: 1px solid var(--rule); }
+  .legrow:last-child { border-bottom: none; }
+  .legdot { width: 11px; height: 11px; border-radius: 2px; }
+  .leglabel { font-size: 13px; }
+  .legval { font-family: ui-monospace, monospace; font-size: 13px; font-weight: 600; text-align: right; }
+  .legpct { font-family: ui-monospace, monospace; font-size: 12px; color: var(--ink-soft); text-align: right; }
+
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
 
   footer { margin-top: 36px; padding-top: 14px; border-top: 1px solid var(--rule); font-size: 11px; color: var(--ink-soft); font-family: ui-monospace, monospace; letter-spacing: .03em; }
@@ -162,7 +173,7 @@
     <!-- Latency histogram -->
     <div class="panel">
       <h3>Entry latency distribution</h3>
-      <p class="desc">Time from <em>received</em> to <em>entered</em>, in days. <span class="clickable">Click a band to filter.</span></p>
+      <p class="desc">Time from <em>received</em> to <em>entered</em>. Hover a segment for its exact share.</p>
       <div id="latencyHist"></div>
     </div>
 
@@ -380,29 +391,60 @@
     });
   }
 
-  // latency band histogram
+  // latency band donut chart
   function renderLatencyHist() {
     var data = filtered().map(function (r) { return r.lat; }).filter(function (v) { return v != null && !isNaN(v); });
     if (!data.length) { el("latencyHist").innerHTML = '<div class="count">no timestamp data</div>'; return; }
 
+    // graded palette: fast = brass/gold, slow = warm red
     var bands = [
-      ["band", "Same day", function (d) { return d < 1; }],
-      ["band", "1–2 days", function (d) { return d >= 1 && d < 3; }],
-      ["band", "3–7 days", function (d) { return d >= 3 && d < 7; }],
-      ["band", "1–2 weeks", function (d) { return d >= 7 && d < 14; }],
-      ["band", "2–4 weeks", function (d) { return d >= 14 && d < 28; }],
-      ["band", "Over 4 weeks", function (d) { return d >= 28; }]
+      ["Same day",    "#2e8b57", function (d) { return d < 1; }],
+      ["1–2 days",    "#7cb342", function (d) { return d >= 1 && d < 3; }],
+      ["3–7 days",    "#e3c01e", function (d) { return d >= 3 && d < 7; }],
+      ["1–2 weeks",   "#ef8b1e", function (d) { return d >= 7 && d < 14; }],
+      ["2–4 weeks",   "#e0561f", function (d) { return d >= 14 && d < 28; }],
+      ["Over 4 weeks","#b3201a", function (d) { return d >= 28; }]
     ];
-    var rows = bands.map(function (b) { return [b[1], data.filter(b[2]).length]; });
-    var max = rows.reduce(function (mx, r) { return Math.max(mx, r[1]); }, 0) || 1;
+    var rows = bands.map(function (b) { return { label: b[0], color: b[1], count: data.filter(b[2]).length }; });
+    var total = data.length;
 
-    el("latencyHist").innerHTML = rows.map(function (r) {
-      var pct = (r[1] / max * 100).toFixed(1);
-      return '<div class="barrow" style="cursor:default">' +
-        '<div class="barlabel">' + r[0] + '</div>' +
-        '<div class="bartrack"><div class="barfill" style="width:' + pct + '%;background:var(--brass)"></div></div>' +
-        '<div class="barval">' + r[1] + '</div></div>';
-    }).join("");
+    // donut geometry
+    var cx = 90, cy = 90, r = 70, sw = 26;
+    var circ = 2 * Math.PI * r;
+    var offset = 0;
+    var segs = "";
+    rows.forEach(function (row) {
+      if (!row.count) return;
+      var frac = row.count / total;
+      var len = frac * circ;
+      // dasharray: visible segment then gap; rotate via offset
+      segs += '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" ' +
+        'stroke="' + row.color + '" stroke-width="' + sw + '" ' +
+        'stroke-dasharray="' + len.toFixed(2) + ' ' + (circ - len).toFixed(2) + '" ' +
+        'stroke-dashoffset="' + (-offset).toFixed(2) + '" ' +
+        'transform="rotate(-90 ' + cx + ' ' + cy + ')">' +
+        '<title>' + row.label + ': ' + row.count + ' (' + (frac * 100).toFixed(1) + '%)</title></circle>';
+      offset += len;
+    });
+
+    var svg = '<svg viewBox="0 0 180 180" width="180" height="180" role="img" aria-label="Entry latency distribution donut chart">' +
+      '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="#ece8dd" stroke-width="' + sw + '"></circle>' +
+      segs +
+      '<text x="' + cx + '" y="' + (cy - 4) + '" text-anchor="middle" font-family="ui-monospace,monospace" font-size="26" font-weight="600" fill="#1a1f2b">' + total + '</text>' +
+      '<text x="' + cx + '" y="' + (cy + 16) + '" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10" letter-spacing="0.1em" fill="#4a5364">APPS</text>' +
+      '</svg>';
+
+    var legend = '<div class="donut-legend">' + rows.map(function (row) {
+      var pct = total ? (row.count / total * 100) : 0;
+      return '<div class="legrow">' +
+        '<span class="legdot" style="background:' + row.color + '"></span>' +
+        '<span class="leglabel">' + row.label + '</span>' +
+        '<span class="legval">' + row.count + '</span>' +
+        '<span class="legpct">' + pct.toFixed(1) + '%</span>' +
+        '</div>';
+    }).join("") + '</div>';
+
+    el("latencyHist").innerHTML = '<div class="donut-wrap">' + svg + legend + '</div>';
   }
 
   // ---- Chips / filter bar ----
