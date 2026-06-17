@@ -411,20 +411,22 @@
     "notentered": "Understands English", "noentered": "Understands English"
   };
 
-  // Levenshtein distance (space-optimised, two-row)
+  // Optimal String Alignment distance (Damerau-Levenshtein with transpositions as cost 1)
   function levenshtein(a, b) {
     var m = a.length, n = b.length;
     if (!m) return n;
     if (!n) return m;
-    var prev = [], curr = [];
-    for (var j = 0; j <= n; j++) prev[j] = j;
-    for (var i = 1; i <= m; i++) {
-      curr[0] = i;
-      for (var j = 1; j <= n; j++)
-        curr[j] = a[i-1] === b[j-1] ? prev[j-1] : 1 + Math.min(prev[j-1], prev[j], curr[j-1]);
-      var tmp = prev; prev = curr; curr = tmp;
+    var d = [], i, j;
+    for (i = 0; i <= m; i++) { d[i] = [i]; for (j = 1; j <= n; j++) d[i][j] = i === 0 ? j : 0; }
+    for (i = 1; i <= m; i++) {
+      for (j = 1; j <= n; j++) {
+        var cost = a[i-1] === b[j-1] ? 0 : 1;
+        d[i][j] = Math.min(d[i-1][j] + 1, d[i][j-1] + 1, d[i-1][j-1] + cost);
+        if (i > 1 && j > 1 && a[i-1] === b[j-2] && a[i-2] === b[j-1])
+          d[i][j] = Math.min(d[i][j], d[i-2][j-2] + cost);
+      }
     }
-    return prev[n];
+    return d[m][n];
   }
 
   // Canonical targets for fuzzy matching (normalized: lowercase, alphanumeric only)
@@ -526,7 +528,7 @@
     if (!s) return "Understands English";
     var clean = s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
     // CV + Portuguese (check before standalone CV/HC — order matters)
-    var hasCV = /(cap[eo]|cabo|kabu|cabe)\s*verd|creol|criol|kriolu?|crioulo|kabuverdianu/.test(clean);
+    var hasCV = /(cap[eo]|cabo|kabu|cabe)\s*verd|creol|criol|kriolu?|crioulo|kabuverdianu|\bcvc\b/.test(clean);
     var hasPT = /portugu/.test(clean);
     if (hasCV && hasPT) return "Cape Verdean Creole / Portuguese";
     // Haitian indicator — catches combos like "Haitian Creole and French"
