@@ -740,7 +740,9 @@
   // ---- Master render ----
   function render() {
     var data = filtered();
-    el("recordCount").textContent = data.length + " of " + ROWS.length + " applications";
+    var hasFilters = Object.keys(FILTERS).length > 0;
+    var pct = hasFilters ? " (" + Math.round(data.length / ROWS.length * 100) + "%)" : "";
+    el("recordCount").textContent = data.length + " of " + ROWS.length + " applications" + pct;
     renderStats(data);
     renderLatencyHist();
     renderBars("townHist", "town", { limit: TOWN_LIMIT });
