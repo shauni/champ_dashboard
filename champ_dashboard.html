@@ -197,8 +197,11 @@
         <div id="townHist"></div>
       </div>
       <div class="panel">
-        <h3>By language</h3>
-        <p class="desc">Applicant's stated language.</p>
+        <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:2px">
+          <h3 style="margin:0">By language</h3>
+          <button class="clearall" id="langToggle">Show raw entries</button>
+        </div>
+        <p class="desc" id="langDesc">Applicant's stated language, normalized.</p>
         <div id="langHist"></div>
       </div>
     </div>
@@ -215,6 +218,7 @@
   var ROWS = [];          // normalized records
   var FILTERS = {};       // { dimension: Set(values) }
   var TOWN_LIMIT = 15;    // top-N towns shown
+  var LANG_RAW = false;   // toggle: show raw vs normalized language
 
   var el = function (id) { return document.getElementById(id); };
 
@@ -558,6 +562,7 @@
       rec.age = cAge ? parseInt(row[cAge], 10) : NaN;
       rec.ageBracket = ageBracket(rec.age);
       rec.town = cLoc ? (String(row[cLoc] || "").trim() || "Unknown") : "Unknown";
+      rec.langRaw = cLang ? (String(row[cLang] || "").trim() || "Blank") : "Blank";
       rec.lang = normalizeLanguage(cLang ? row[cLang] : null);
       rec.homeless = cHl ? (parseBool(row[cHl]) ? "Homeless" : "Not homeless") : "Unknown";
       rec.lat = null;
@@ -746,7 +751,10 @@
     renderStats(data);
     renderLatencyHist();
     renderBars("townHist", "town", { limit: TOWN_LIMIT });
-    renderBars("langHist", "lang");
+    var langDim = LANG_RAW ? "langRaw" : "lang";
+    el("langToggle").textContent = LANG_RAW ? "Show normalized" : "Show raw entries";
+    el("langDesc").textContent = LANG_RAW ? "Raw values as entered." : "Applicant’s stated language, normalized.";
+    renderBars("langHist", langDim);
     renderBars("ageHist", "ageBracket", { order: AGE_ORDER });
     renderBars("homelessHist", "homeless", { order: ["Homeless", "Not homeless", "Unknown"] });
     renderChips();
@@ -793,6 +801,12 @@
   }
 
   el("fileInput").addEventListener("change", function (e) { if (e.target.files[0]) handleFile(e.target.files[0]); });
+  el("langToggle").addEventListener("click", function () {
+    LANG_RAW = !LANG_RAW;
+    delete FILTERS.lang;
+    delete FILTERS.langRaw;
+    render();
+  });
   var ld = el("loader");
   ["dragenter", "dragover"].forEach(function (ev) { ld.addEventListener(ev, function (e) { e.preventDefault(); ld.classList.add("drag"); }); });
   ["dragleave", "drop"].forEach(function (ev) { ld.addEventListener(ev, function (e) { e.preventDefault(); ld.classList.remove("drag"); }); });
