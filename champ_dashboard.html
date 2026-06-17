@@ -268,6 +268,278 @@
     return days.toFixed(1) + " d";
   }
 
+  // ---- Language normalization ----
+  var LANG_ALIASES = {
+    // English
+    "english": "English", "eng": "English", "en": "English",
+    "englishonly": "English", "englishspeaking": "English",
+
+    // Spanish
+    "spanish": "Spanish", "spainish": "Spanish", "spansih": "Spanish", "spainsh": "Spanish",
+    "spasnish": "Spanish", "spansish": "Spanish", "spanol": "Spanish",
+    "espanol": "Spanish", "espanola": "Spanish", "esapanol": "Spanish", "castellano": "Spanish",
+    "spanishespanol": "Spanish",
+
+    // Portuguese
+    "portuguese": "Portuguese", "portugese": "Portuguese", "portugues": "Portuguese",
+    "portguese": "Portuguese", "poretugues": "Portuguese", "portugeses": "Portuguese",
+    "brazilianportuguese": "Portuguese", "portuguesebrazilian": "Portuguese",
+    "portuguesebrazil": "Portuguese",
+
+    // Cape Verdean Creole — many real-world spellings
+    "capeverde": "Cape Verdean Creole",
+    "capeverdean": "Cape Verdean Creole",
+    "capeverdecreole": "Cape Verdean Creole",
+    "capeverdeancreole": "Cape Verdean Creole",
+    "capeverdeanecreole": "Cape Verdean Creole",
+    "capeverdeankriolu": "Cape Verdean Creole",
+    "capeverdeankriol": "Cape Verdean Creole",
+    "capeverdeancrioulo": "Cape Verdean Creole",
+    "capeverdeancriol": "Cape Verdean Creole",
+    "capeverdekriolu": "Cape Verdean Creole",
+    "caboverde": "Cape Verdean Creole",
+    "caboverdean": "Cape Verdean Creole",
+    "caboverdecreole": "Cape Verdean Creole",
+    "caboverdeancreole": "Cape Verdean Creole",
+    "caboverdeancriole": "Cape Verdean Creole",
+    "cvcreole": "Cape Verdean Creole",
+    "cvc": "Cape Verdean Creole",
+    "kriolu": "Cape Verdean Creole",
+    "kriolo": "Cape Verdean Creole",
+    "kriol": "Cape Verdean Creole",
+    "criolo": "Cape Verdean Creole",
+    "criole": "Cape Verdean Creole",
+    "crioulo": "Cape Verdean Creole",
+    "creolo": "Cape Verdean Creole",
+    "creolechapeverde": "Cape Verdean Creole",
+    "kabuverdianu": "Cape Verdean Creole",
+    "kabuverdiano": "Cape Verdean Creole",
+
+    // Haitian Creole — standalone and combo forms (combos with French also caught by hasHC)
+    "haitiancreole": "Haitian Creole",
+    "haitiancreol": "Haitian Creole",
+    "haitiencreole": "Haitian Creole",
+    "haitiankreole": "Haitian Creole",
+    "haitiankreyol": "Haitian Creole",
+    "haitian": "Haitian Creole",
+    "kreyol": "Haitian Creole",
+    "kreyolayisyen": "Haitian Creole",
+    "kreol": "Haitian Creole",
+    "creole": "Haitian Creole",
+    "creol": "Haitian Creole",
+    "frenchcreole": "Haitian Creole",
+    "frenchcreol": "Haitian Creole",
+    "hc": "Haitian Creole",
+
+    // French
+    "french": "French", "francais": "French",
+
+    // Vietnamese
+    "vietnamese": "Vietnamese", "viet": "Vietnamese", "tiengviet": "Vietnamese",
+    "vietnames": "Vietnamese",
+
+    // Chinese
+    "chinese": "Chinese", "mandarin": "Chinese", "cantonese": "Chinese",
+    "mandarinchinese": "Chinese", "chinesemandarin": "Chinese",
+    "chinesecantonese": "Chinese", "cantonesechinese": "Chinese",
+    "cantonesemandarin": "Chinese", "mandarincantonese": "Chinese",
+    "chinesesimplified": "Chinese", "toisanese": "Chinese",
+    "taishanese": "Chinese", "taishan": "Chinese", "china": "Chinese",
+
+    // Somali
+    "somali": "Somali", "afsoomaali": "Somali",
+
+    // Amharic
+    "amharic": "Amharic", "amharicethiopia": "Amharic",
+
+    // Tigrinya
+    "tigrinya": "Tigrinya", "tigrigna": "Tigrinya",
+
+    // Swahili
+    "swahili": "Swahili", "kiswali": "Swahili", "kiswahili": "Swahili",
+
+    // Twi
+    "twi": "Twi",
+
+    // Arabic
+    "arabic": "Arabic",
+
+    // Khmer
+    "khmer": "Khmer", "cambodian": "Khmer",
+    "cambodiakhmer": "Khmer", "khmercambodia": "Khmer", "cambodiankhmer": "Khmer",
+
+    // Hmong
+    "hmong": "Hmong",
+
+    // Hindi
+    "hindi": "Hindi",
+
+    // Dari / Farsi
+    "farsi": "Dari/Farsi", "dari": "Dari/Farsi", "daari": "Dari/Farsi",
+    "persian": "Dari/Farsi", "persiandari": "Dari/Farsi",
+
+    // Lao
+    "lao": "Lao", "laos": "Lao", "laotian": "Lao",
+
+    // European
+    "russian": "Russian",
+    "ukrainian": "Ukrainian", "ukraine": "Ukrainian",
+    "romanian": "Romanian",
+    "armenian": "Armenian",
+    "turkish": "Turkish",
+    "albanian": "Albanian",
+    "polish": "Polish",
+    "italian": "Italian",
+    "greek": "Greek",
+    "korean": "Korean", "korea": "Korean",
+    "japanese": "Japanese",
+
+    // South / Southeast Asian
+    "punjabi": "Punjabi",
+    "gujarati": "Gujarati", "gujaratiindian": "Gujarati", "gujartiindian": "Gujarati",
+    "pashto": "Pashto",
+    "bangla": "Bengali", "bengali": "Bengali",
+
+    // African
+    "luganda": "Luganda", "lugandauganda": "Luganda",
+    "sango": "Sango",
+
+    // Other
+    "americansignlanguage": "American Sign Language", "asl": "American Sign Language",
+    "russianukranian": "Russian", "russianukrainian": "Russian",
+    "na": "Understands English",
+    "notentered": "Understands English", "noentered": "Understands English"
+  };
+
+  // Levenshtein distance (space-optimised, two-row)
+  function levenshtein(a, b) {
+    var m = a.length, n = b.length;
+    if (!m) return n;
+    if (!n) return m;
+    var prev = [], curr = [];
+    for (var j = 0; j <= n; j++) prev[j] = j;
+    for (var i = 1; i <= m; i++) {
+      curr[0] = i;
+      for (var j = 1; j <= n; j++)
+        curr[j] = a[i-1] === b[j-1] ? prev[j-1] : 1 + Math.min(prev[j-1], prev[j], curr[j-1]);
+      var tmp = prev; prev = curr; curr = tmp;
+    }
+    return prev[n];
+  }
+
+  // Canonical targets for fuzzy matching (normalized: lowercase, alphanumeric only)
+  var FUZZY_TARGETS = [
+    { norm: "capeverdeancreole",  label: "Cape Verdean Creole" },
+    { norm: "haitiancreole",      label: "Haitian Creole" },
+    { norm: "english",            label: "English" },
+    { norm: "spanish",            label: "Spanish" },
+    { norm: "portuguese",         label: "Portuguese" },
+    { norm: "french",             label: "French" },
+    { norm: "vietnamese",         label: "Vietnamese" },
+    { norm: "chinese",            label: "Chinese" },
+    { norm: "somali",             label: "Somali" },
+    { norm: "arabic",             label: "Arabic" },
+    { norm: "amharic",            label: "Amharic" },
+    { norm: "tigrinya",           label: "Tigrinya" },
+    { norm: "khmer",              label: "Khmer" },
+    { norm: "hmong",              label: "Hmong" },
+    { norm: "russian",            label: "Russian" },
+    { norm: "albanian",           label: "Albanian" },
+    { norm: "polish",             label: "Polish" },
+    { norm: "hindi",              label: "Hindi" },
+    { norm: "korean",             label: "Korean" },
+    { norm: "swahili",            label: "Swahili" },
+    { norm: "ukrainian",          label: "Ukrainian" },
+    { norm: "romanian",           label: "Romanian" },
+    { norm: "armenian",           label: "Armenian" },
+    { norm: "turkish",            label: "Turkish" },
+    { norm: "italian",            label: "Italian" },
+    { norm: "punjabi",            label: "Punjabi" },
+    { norm: "gujarati",           label: "Gujarati" },
+    { norm: "pashto",             label: "Pashto" }
+  ];
+
+  // Threshold: 1 edit per ~8 chars (min 0 for very short keys to avoid false positives)
+  function fuzzyThreshold(len) {
+    return len < 6 ? 0 : len < 12 ? 1 : 2;
+  }
+
+  function fuzzyMatchLang(key) {
+    var best = null, bestDist = Infinity;
+    var thresh = fuzzyThreshold(key.length);
+    if (thresh === 0) return null;
+    for (var i = 0; i < FUZZY_TARGETS.length; i++) {
+      var t = FUZZY_TARGETS[i];
+      if (Math.abs(key.length - t.norm.length) > thresh) continue;
+      var d = levenshtein(key, t.norm);
+      if (d <= thresh && d < bestDist) { bestDist = d; best = t.label; }
+    }
+    return best;
+  }
+
+  // Keyword scan for long free-text entries that slip past alias/fuzzy
+  function keywordScan(clean) {
+    if (/(cap[eo]|cabo|kabu|cabe)\s*verd|\bkriol|\bcriol/.test(clean)) return "Cape Verdean Creole";
+    if (/creol/.test(clean) && /french|franc/.test(clean)) return "Haitian Creole";
+    if (/\bcreol/.test(clean)) return "Haitian Creole";
+    if (/portugu/.test(clean)) return "Portuguese";
+    if (/\bespanol\b|\bspanish\b/.test(clean)) return "Spanish";
+    if (/chinese|mandarin|cantonese/.test(clean)) return "Chinese";
+    if (/\barabic/.test(clean)) return "Arabic";
+    if (/vietnamese/.test(clean)) return "Vietnamese";
+    if (/\brussian/.test(clean)) return "Russian";
+    if (/\bfrench/.test(clean)) return "French";
+    if (/\bsomali/.test(clean)) return "Somali";
+    if (/khmer|cambod/.test(clean)) return "Khmer";
+    if (/amharic/.test(clean)) return "Amharic";
+    if (/albanian/.test(clean)) return "Albanian";
+    if (/\bkorean\b|\bkorea\b/.test(clean)) return "Korean";
+    if (/\bhindi/.test(clean)) return "Hindi";
+    if (/swahili/.test(clean)) return "Swahili";
+    if (/\bhmong/.test(clean)) return "Hmong";
+    if (/ukrainian|ukraine/.test(clean)) return "Ukrainian";
+    if (/romanian/.test(clean)) return "Romanian";
+    if (/armenian/.test(clean)) return "Armenian";
+    if (/turkish/.test(clean)) return "Turkish";
+    if (/italian/.test(clean)) return "Italian";
+    if (/\bfarsi\b|\bdari\b|\bpersian\b/.test(clean)) return "Dari/Farsi";
+    if (/\blao\b|\blaotian\b|\blaos\b/.test(clean)) return "Lao";
+    if (/punjabi/.test(clean)) return "Punjabi";
+    if (/gujarati/.test(clean)) return "Gujarati";
+    if (/pashto/.test(clean)) return "Pashto";
+    if (/bangla|bengali/.test(clean)) return "Bengali";
+    if (/tigrinya/.test(clean)) return "Tigrinya";
+    if (/\bpolish/.test(clean)) return "Polish";
+    if (/\bgreek/.test(clean)) return "Greek";
+    if (/\bsango/.test(clean)) return "Sango";
+    if (/luganda/.test(clean)) return "Luganda";
+    if (/\bespanol/.test(clean)) return "Spanish";
+    if (/sign language|american sign/.test(clean)) return "American Sign Language";
+    if (/entiendo/.test(clean)) return "Spanish";
+    if (/\benglish/.test(clean)) return "English";
+    return null;
+  }
+
+  function normalizeLanguage(raw) {
+    if (!raw) return "Understands English";
+    var s = String(raw).trim();
+    if (!s) return "Understands English";
+    var clean = s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+    // CV + Portuguese (check before standalone CV/HC — order matters)
+    var hasCV = /(cap[eo]|cabo|kabu|cabe)\s*verd|creol|criol|kriolu?|crioulo|kabuverdianu/.test(clean);
+    var hasPT = /portugu/.test(clean);
+    if (hasCV && hasPT) return "Cape Verdean Creole / Portuguese";
+    // Haitian indicator — catches combos like "Haitian Creole and French"
+    if (/hait|kreyol/.test(clean)) return "Haitian Creole";
+    var key = clean.replace(/[^a-z0-9]/g, "");
+    if (LANG_ALIASES[key]) return LANG_ALIASES[key];
+    var fuzzy = fuzzyMatchLang(key);
+    if (fuzzy) return fuzzy;
+    var kw = keywordScan(clean);
+    if (kw) return kw;
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  }
+
   // ---- Ingest ----
   function ingest(rows, headers) {
     var cR = pick(headers, ["time received","timereceived","received","receivedat"]);
@@ -284,7 +556,7 @@
       rec.age = cAge ? parseInt(row[cAge], 10) : NaN;
       rec.ageBracket = ageBracket(rec.age);
       rec.town = cLoc ? (String(row[cLoc] || "").trim() || "Unknown") : "Unknown";
-      rec.lang = cLang ? (String(row[cLang] || "").trim() || "Unknown") : "Unknown";
+      rec.lang = normalizeLanguage(cLang ? row[cLang] : null);
       rec.homeless = cHl ? (parseBool(row[cHl]) ? "Homeless" : "Not homeless") : "Unknown";
       rec.lat = null;
       return rec;
