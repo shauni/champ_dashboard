@@ -206,6 +206,12 @@
       </div>
     </div>
 
+    <div class="panel">
+      <h3>Applications over time</h3>
+      <p class="desc">Weekly count of applications received and entered into the system.</p>
+      <div id="timeseriesChart"></div>
+    </div>
+
     <footer id="foot"></footer>
   </div>
 </div>
@@ -742,6 +748,81 @@
     });
   }
 
+  // ---- Timeseries ----
+  function renderTimeseries() {
+    var data = filtered();
+    var MS_WEEK = 604800000;
+
+    function toMonday(t) {
+      var d = new Date(t), dow = d.getDay();
+      d.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1));
+      d.setHours(0, 0, 0, 0);
+      return d.getTime();
+    }
+
+    // axis range from all ROWS so it stays stable under filtering
+    var allT = [];
+    ROWS.forEach(function(r) {
+      if (r._recv instanceof Date && !isNaN(r._recv)) allT.push(r._recv.getTime());
+      if (r._ent  instanceof Date && !isNaN(r._ent))  allT.push(r._ent.getTime());
+    });
+    if (!allT.length) { el("timeseriesChart").innerHTML = '<div class="count">no timestamp data</div>'; return; }
+
+    var wMax = toMonday(Math.max.apply(null, allT));
+    var wMin = Math.max(toMonday(Math.min.apply(null, allT)), wMax - 52 * MS_WEEK);
+    var weeks = [], wi = {};
+    for (var w = wMin; w <= wMax; w += MS_WEEK) { wi[w] = weeks.length; weeks.push(w); }
+    var N = weeks.length;
+    if (N < 2) { el("timeseriesChart").innerHTML = '<div class="count">not enough date range</div>'; return; }
+
+    var recv = new Array(N).fill(0), ent = new Array(N).fill(0);
+    data.forEach(function(r) {
+      var ir = wi[toMonday(r._recv instanceof Date && !isNaN(r._recv) ? r._recv.getTime() : NaN)];
+      var ie = wi[toMonday(r._ent  instanceof Date && !isNaN(r._ent)  ? r._ent.getTime()  : NaN)];
+      if (ir !== undefined) recv[ir]++;
+      if (ie !== undefined) ent[ie]++;
+    });
+
+    var maxVal = Math.max.apply(null, recv.concat(ent));
+    if (!maxVal) { el("timeseriesChart").innerHTML = '<div class="count">no data in view</div>'; return; }
+    var mag = Math.pow(10, Math.floor(Math.log(maxVal) / Math.LN10));
+    var yMax = Math.ceil(maxVal / mag) * mag;
+
+    var W = 900, H = 200, mT = 20, mR = 110, mB = 40, mL = 44;
+    var pw = W - mL - mR, ph = H - mT - mB;
+    function xp(i) { return (mL + i / (N - 1) * pw).toFixed(1); }
+    function yp(v) { return (mT + ph * (1 - v / yMax)).toFixed(1); }
+    function pts(arr) { return arr.map(function(v, i) { return xp(i) + ',' + yp(v); }).join(' '); }
+
+    var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    var xLabels = [], seen = {};
+    weeks.forEach(function(w, i) {
+      var d = new Date(w), key = d.getFullYear() + '-' + d.getMonth();
+      if (!seen[key]) { seen[key] = true; xLabels.push({ x: xp(i), label: MONTHS[d.getMonth()] + ' \'' + String(d.getFullYear()).slice(2) }); }
+    });
+
+    var o = ['<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto;display:block">'];
+    var yTicks = [0, 1, 2, 3, 4].map(function(t) { return Math.round(yMax / 4 * t); });
+    yTicks.forEach(function(v) {
+      var y = yp(v);
+      o.push('<line x1="' + mL + '" y1="' + y + '" x2="' + (W - mR) + '" y2="' + y + '" stroke="#d9d4c7" stroke-width="1"/>');
+      o.push('<text x="' + (mL - 6) + '" y="' + (+y + 4) + '" text-anchor="end" font-size="10" font-family="ui-monospace,monospace" fill="#4a5364">' + v + '</text>');
+    });
+    o.push('<line x1="' + mL + '" y1="' + (mT + ph) + '" x2="' + (W - mR) + '" y2="' + (mT + ph) + '" stroke="#d9d4c7" stroke-width="1"/>');
+    xLabels.forEach(function(lb) {
+      o.push('<text x="' + lb.x + '" y="' + (mT + ph + 16) + '" text-anchor="middle" font-size="10" font-family="ui-monospace,monospace" fill="#4a5364">' + lb.label + '</text>');
+    });
+    o.push('<polyline points="' + pts(recv) + '" fill="none" stroke="#3d5066" stroke-width="2" stroke-linejoin="round"/>');
+    o.push('<polyline points="' + pts(ent)  + '" fill="none" stroke="#b8893a" stroke-width="2" stroke-linejoin="round"/>');
+    var lx = W - mR + 14, ly = mT + 18;
+    o.push('<line x1="' + lx + '" y1="' + (ly + 2) + '" x2="' + (lx + 14) + '" y2="' + (ly + 2) + '" stroke="#3d5066" stroke-width="2" stroke-linecap="round"/>');
+    o.push('<text x="' + (lx + 18) + '" y="' + (ly + 6) + '" font-size="11" font-family="ui-monospace,monospace" fill="#4a5364">Received</text>');
+    o.push('<line x1="' + lx + '" y1="' + (ly + 22) + '" x2="' + (lx + 14) + '" y2="' + (ly + 22) + '" stroke="#b8893a" stroke-width="2" stroke-linecap="round"/>');
+    o.push('<text x="' + (lx + 18) + '" y="' + (ly + 26) + '" font-size="11" font-family="ui-monospace,monospace" fill="#4a5364">Entered</text>');
+    o.push('</svg>');
+    el("timeseriesChart").innerHTML = o.join('');
+  }
+
   // ---- Master render ----
   function render() {
     var data = filtered();
@@ -757,6 +838,7 @@
     renderBars("langHist", langDim);
     renderBars("ageHist", "ageBracket", { order: AGE_ORDER });
     renderBars("homelessHist", "homeless", { order: ["Homeless", "Not homeless", "Unknown"] });
+    renderTimeseries();
     renderChips();
     el("foot").textContent = "Processed locally · " + ROWS.length + " records · generated " + new Date().toLocaleString();
   }
