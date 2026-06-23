@@ -769,9 +769,14 @@
     if (!allT.length) { el("timeseriesChart").innerHTML = '<div class="count">no timestamp data</div>'; return; }
 
     var wMax = toMonday(Math.max.apply(null, allT));
-    var wMin = Math.max(toMonday(Math.min.apply(null, allT)), wMax - 52 * MS_WEEK);
-    var weeks = [], wi = {};
-    for (var w = wMin; w <= wMax; w += MS_WEEK) { wi[w] = weeks.length; weeks.push(w); }
+    // toMonday on the cutoff ensures wMin is always a real local-midnight Monday
+    var wMin = toMonday(Math.max(Math.min.apply(null, allT), wMax - 52 * MS_WEEK));
+    var weeks = [], wi = {}, w = wMin;
+    while (w <= wMax) {
+      wi[w] = weeks.length; weeks.push(w);
+      // advance by 7 calendar days via local date arithmetic, not fixed ms, to survive DST
+      var nd = new Date(w); nd.setDate(nd.getDate() + 7); w = nd.getTime();
+    }
     var N = weeks.length;
     if (N < 2) { el("timeseriesChart").innerHTML = '<div class="count">not enough date range</div>'; return; }
 
