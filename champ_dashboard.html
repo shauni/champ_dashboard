@@ -141,7 +141,7 @@
       <div class="domerule"></div>
       <p class="eyebrow">CHAMP · Metrics</p>
       <h1>Paper Application Dashboard</h1>
-      <div class="sub">Paper applications received over the trailing year — entry latency &amp; demographic distribution.</div>
+      <div class="sub" id="mastSub">Paper applications received over the trailing year — entry latency &amp; demographic distribution.</div>
     </div>
     <div class="count" id="recordCount"></div>
   </header>
@@ -184,18 +184,26 @@
         <div id="ageHist"></div>
       </div>
       <div class="panel">
-        <h3>Homeless priority</h3>
-        <p class="desc">Share flagged with homeless status.</p>
-        <div id="homelessHist"></div>
+        <h3>Disability status</h3>
+        <p class="desc">Head of household disability status.</p>
+        <div id="disabilityHist"></div>
       </div>
     </div>
 
     <div class="grid2">
       <div class="panel">
         <h3>By town</h3>
-        <p class="desc desc-town">Applicant's current stated address</p>
+        <p class="desc desc-town">Applicant's current stated address.</p>
         <div id="townHist"></div>
       </div>
+      <div class="panel">
+        <h3>By LHA</h3>
+        <p class="desc">Local housing authority.</p>
+        <div id="lhaHist"></div>
+      </div>
+    </div>
+
+    <div class="grid2">
       <div class="panel">
         <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:2px">
           <h3 style="margin:0">By language</h3>
@@ -204,6 +212,17 @@
         <p class="desc" id="langDesc">Applicant's stated language, normalized.</p>
         <div id="langHist"></div>
       </div>
+      <div class="panel">
+        <h3>By race</h3>
+        <p class="desc">Head of household racial designation.</p>
+        <div id="raceHist"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>Homeless priority</h3>
+      <p class="desc">Share flagged with homeless status.</p>
+      <div id="homelessHist"></div>
     </div>
 
     <div class="panel">
@@ -559,6 +578,9 @@
     var cAge = pick(headers, ["applicant age","age"]);
     var cLoc = pick(headers, ["applicant location","location","town","municipality","city"]);
     var cLang = pick(headers, ["applicant language","language"]);
+    var cLha = pick(headers, ["lha","local housing authority","housing authority"]);
+    var cRace = pick(headers, ["hoh racial designation","racial designation","race"]);
+    var cDis = pick(headers, ["hoh disabled status","disabled status","disability status","disability"]);
     var cHl = pick(headers, ["homeless"]);
 
     ROWS = rows.map(function (row) {
@@ -568,8 +590,13 @@
       rec.age = cAge ? parseInt(row[cAge], 10) : NaN;
       rec.ageBracket = ageBracket(rec.age);
       rec.town = cLoc ? (String(row[cLoc] || "").trim() || "Unknown") : "Unknown";
+      rec.lha = cLha ? (String(row[cLha] || "").trim() || "Unknown") : "Unknown";
       rec.langRaw = cLang ? (String(row[cLang] || "").trim() || "Blank") : "Blank";
       rec.lang = normalizeLanguage(cLang ? row[cLang] : null);
+      var rawRace = cRace ? String(row[cRace] || "").trim() : "";
+      rec.race = rawRace || "Not reported";
+      var rawDis = cDis ? String(row[cDis] || "").trim() : "";
+      rec.disability = rawDis === "decline_to_answer" ? "Decline to answer" : (rawDis || "Unknown");
       rec.homeless = cHl ? (parseBool(row[cHl]) ? "Homeless" : "Not homeless") : "Unknown";
       rec.lat = null;
       return rec;
@@ -834,14 +861,24 @@
     var hasFilters = Object.keys(FILTERS).length > 0;
     var pct = hasFilters ? " (" + Math.round(data.length / ROWS.length * 100) + "%)" : "";
     el("recordCount").textContent = data.length + " of " + ROWS.length + " applications" + pct;
+    var entDates = ROWS.map(function(r) { return r._ent; }).filter(function(d) { return d instanceof Date && !isNaN(d); });
+    if (entDates.length) {
+      var fmtD = function(d) { return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); };
+      var minEnt = new Date(Math.min.apply(null, entDates.map(function(d) { return d.getTime(); })));
+      var maxEnt = new Date(Math.max.apply(null, entDates.map(function(d) { return d.getTime(); })));
+      el("mastSub").textContent = "Paper applications processed from " + fmtD(minEnt) + " to " + fmtD(maxEnt) + ".";
+    }
     renderStats(data);
     renderLatencyHist();
+    renderBars("ageHist", "ageBracket", { order: AGE_ORDER });
+    renderBars("disabilityHist", "disability", { order: ["Yes", "No", "Decline to answer", "Unknown"] });
     renderBars("townHist", "town", { limit: TOWN_LIMIT });
+    renderBars("lhaHist", "lha", { limit: TOWN_LIMIT });
     var langDim = LANG_RAW ? "langRaw" : "lang";
     el("langToggle").textContent = LANG_RAW ? "Show normalized" : "Show raw entries";
     el("langDesc").textContent = LANG_RAW ? "Raw values as entered." : "Applicant’s stated language, normalized.";
     renderBars("langHist", langDim);
-    renderBars("ageHist", "ageBracket", { order: AGE_ORDER });
+    renderBars("raceHist", "race");
     renderBars("homelessHist", "homeless", { order: ["Homeless", "Not homeless", "Unknown"] });
     renderTimeseries();
     renderChips();
