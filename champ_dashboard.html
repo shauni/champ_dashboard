@@ -866,7 +866,7 @@
       var fmtD = function(d) { return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); };
       var minEnt = new Date(Math.min.apply(null, entDates.map(function(d) { return d.getTime(); })));
       var maxEnt = new Date(Math.max.apply(null, entDates.map(function(d) { return d.getTime(); })));
-      el("mastSub").textContent = "Paper applications processed from " + fmtD(minEnt) + " to " + fmtD(maxEnt) + ".";
+      el("mastSub").textContent = "Paper applications processed from " + fmtD(minEnt) + " to " + fmtD(maxEnt) + " — entry latency & demographic distribution.";
     }
     renderStats(data);
     renderLatencyHist();
